@@ -11,8 +11,8 @@ workflows:
       xcode: latest
       vars:
         UPSTREAM_REF: cffbf58513558f5ad3976c7497a57d0f3eab1494
-        PATCH_URL: https://aka.doubaocdn.com/s/GEyyTu7pMC
-        PATCH_SHA256: 3980e71eeea43b4af85fc4836f0c8f9ef4e54169db86603618078adfede4fed3
+        PATCH_URL: https://aka.doubaocdn.com/s/hmEPxW0odD
+        PATCH_SHA256: b5b22493b93494bf3bd2726ad3e8d7a963f58c2593388f71d04fea6c103d43fd
 
     triggering:
       events:
