@@ -1,14 +1,19 @@
 name: Build unsigned IPA (CarWithin + VOGE DS625X)
 
-# 用法：仓库页 → Actions → 左侧 "Build unsigned IPA" → 右侧 Run workflow。
-# 跑完在这条运行记录页面底部 Artifacts 下载 CarWithin-VOGE-unsigned-ipa.zip，
-# 解压得到 .ipa，用 Sideloadly 以你自己的 Apple ID 签名装进 iPhone。
+# 触发方式：
+#   1) push 到 main 且改了 workflow 或 voge-port.patch → 自动跑
+#   2) 仓库页 → Actions → 左侧本工作流 → Run workflow → 手动跑
+# 跑完在运行记录页底部 Artifacts 下载 CarWithin-VOGE-unsigned-ipa.zip，解压得 .ipa，
+# 用全能签 / Sideloadly 之类自己签。
 #
-# 补丁来源：默认从 patch_url 下载并校验 sha256。若链接失效，把新的补丁上传到任意直链，
-# 运行时把 patch_url / patch_sha256 改掉即可；也可以把 voge-port.patch 直接提交进本仓库根目录，
-# 工作流会优先用本地那份。
+# 补丁来源：优先用仓库根目录的 voge-port.patch；没有则从 patch_url 下载并校验 sha256。
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'voge-port.patch'
+      - '.github/workflows/build-ipa.yml'
   workflow_dispatch:
     inputs:
       upstream_ref:
@@ -16,7 +21,7 @@ on:
         required: false
         default: cffbf58513558f5ad3976c7497a57d0f3eab1494
       patch_url:
-        description: VOGE 补丁直链
+        description: VOGE 补丁直链（仓库内没有 voge-port.patch 时才用）
         required: false
         default: https://aka.doubaocdn.com/s/GEyyTu7pMC
       patch_sha256:
@@ -26,7 +31,8 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # 先用 macos-14（Intel，排障快）；macos-latest 排队太久可改回。
+    runs-on: macos-14
     timeout-minutes: 45
 
     steps:
@@ -37,6 +43,7 @@ jobs:
         run: |
           xcodebuild -version
           sw_vers
+          xcodebuild -showsdks | grep -i iphoneos || true
 
       - name: 准备补丁
         run: |
@@ -59,7 +66,7 @@ jobs:
           set -euo pipefail
           git clone https://github.com/xmz28/CarWithin.git upstream
           cd upstream
-          git checkout "${{ inputs.upstream_ref }}"
+          git checkout "${{ inputs.upstream_ref || 'cffbf58513558f5ad3976c7497a57d0f3eab1494' }}"
           git log -1 --oneline
 
       - name: 应用 VOGE 补丁
