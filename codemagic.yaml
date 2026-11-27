@@ -1,6 +1,6 @@
 # Codemagic 配置：云端编 CarWithin + VOGE 的未签名 IPA
-# 用法：codemagic.io 用 GitHub 登录 → Add application → 选本仓库 → 选 voge-unsigned-ipa → Start new build
-# 产物：CarWithin-VOGE-unsigned.ipa（未签名，丢全能签即可）
+# 用法：codemagic.io → 应用 → 选 voge-unsigned-ipa → Start new build
+# 产物：CarWithin-VOGE-unsigned.ipa（未签名，且已注入 MFi 身份，丢全能签即可）
 
 workflows:
   voge-unsigned-ipa:
@@ -11,8 +11,9 @@ workflows:
       xcode: latest
       vars:
         UPSTREAM_REF: cffbf58513558f5ad3976c7497a57d0f3eab1494
-        PATCH_URL: https://aka.doubaocdn.com/s/hmEPxW0odD
-        PATCH_SHA256: b5b22493b93494bf3bd2726ad3e8d7a963f58c2593388f71d04fea6c103d43fd
+        PATCH_URL: https://aka.doubaocdn.com/s/VnsVcA30qQ
+        PATCH_SHA256: c730ca0d651c9795165707f59109d8737a9727d2225961f32d01d99f71e58394
+        MFI_SOURCE_IPA: https://github.com/xmz28/CarWithin/releases/download/v1.0.6/CarWithin-1.0.6-unsigned.ipa
 
     triggering:
       events:
@@ -31,14 +32,21 @@ workflows:
       - name: 准备补丁
         script: |
           set -e
-          if [ -f voge-port.patch ]; then
-            echo "使用仓库内补丁"
-            cp voge-port.patch /tmp/voge-port.patch
-          else
-            echo "仓库内无补丁，从 $PATCH_URL 下载"
-            curl -fsSL "$PATCH_URL" -o /tmp/voge-port.patch
+          # 优先用 CDN 上的最新补丁（仓库内补丁可能是旧版）
+          rm -f /tmp/voge-port.patch
+          if curl -fsSL "$PATCH_URL" -o /tmp/voge-port.patch \
+             && echo "$PATCH_SHA256  /tmp/voge-port.patch" | shasum -a 256 -c -; then
+            echo "使用 CDN 补丁（sha256 校验通过）"
           fi
-          echo "$PATCH_SHA256  /tmp/voge-port.patch" | shasum -a 256 -c -
+          if [ ! -f /tmp/voge-port.patch ]; then
+            if [ -f voge-port.patch ]; then
+              echo "CDN 不可用或校验失败，回退到仓库内补丁"
+              cp voge-port.patch /tmp/voge-port.patch
+            else
+              echo "既没有可用的 CDN 补丁，也没有仓库内补丁"
+              exit 1
+            fi
+          fi
 
       - name: 拉上游并打补丁
         script: |
@@ -81,6 +89,29 @@ workflows:
           mkdir Payload
           cp -R "$APP" Payload/
           zip -qry CarWithin-VOGE-unsigned.ipa Payload
+          ls -lh CarWithin-VOGE-unsigned.ipa
+
+      - name: 注入 MFi 身份资源
+        script: |
+          set -e
+          # 开源仓库不含 MFi 身份（授权原因），从上游公开未签名包取出三件套补进来。
+          cd "$CM_BUILD_DIR"
+          curl -fsSL -o /tmp/mfi-source.ipa "$MFI_SOURCE_IPA"
+          rm -rf /tmp/mfi-src && mkdir -p /tmp/mfi-src
+          unzip -qq /tmp/mfi-source.ipa -d /tmp/mfi-src
+          SRC_APP="/tmp/mfi-src/Payload/TDSCarKit.app"
+          for f in certificate.p7b leaf.cer private.x963; do
+            if [ ! -f "$SRC_APP/$f" ]; then
+              echo "上游包里没有 $f，MFi 注入失败"
+              exit 1
+            fi
+            cp "$SRC_APP/$f" Payload/TDSCarKit.app/
+            echo "已注入 $f"
+          done
+          rm -f CarWithin-VOGE-unsigned.ipa
+          zip -qry CarWithin-VOGE-unsigned.ipa Payload
+          echo "--- 产物校验 ---"
+          unzip -l CarWithin-VOGE-unsigned.ipa | grep -E "certificate.p7b|leaf.cer|private.x963"
           ls -lh CarWithin-VOGE-unsigned.ipa
 
     artifacts:
