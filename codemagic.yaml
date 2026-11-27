@@ -1,6 +1,6 @@
 # Codemagic 配置：云端编 CarWithin + VOGE 的未签名 IPA
 # 用法：codemagic.io → 应用 → 选 voge-unsigned-ipa → Start new build
-# 产物：CarWithin-VOGE-unsigned.ipa（未签名，且已注入 MFi 身份，丢全能签即可）
+# 产物：CarWithin-VOGE-unsigned.ipa（未签名，且已注入 MFi 身份）
 
 workflows:
   voge-unsigned-ipa:
@@ -11,8 +11,8 @@ workflows:
       xcode: latest
       vars:
         UPSTREAM_REF: cffbf58513558f5ad3976c7497a57d0f3eab1494
-        PATCH_URL: https://aka.doubaocdn.com/s/VnsVcA30qQ
-        PATCH_SHA256: c730ca0d651c9795165707f59109d8737a9727d2225961f32d01d99f71e58394
+        PATCH_URL: https://aka.doubaocdn.com/s/VRcEVTP19K
+        PATCH_SHA256: 075feeba087de85fe02e00f96664b1543d0babd412ec0f5cd836acc65445b3b2
         MFI_SOURCE_IPA: https://github.com/xmz28/CarWithin/releases/download/v1.0.6/CarWithin-1.0.6-unsigned.ipa
 
     triggering:
