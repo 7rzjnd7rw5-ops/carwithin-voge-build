@@ -1,0 +1,2 @@
+PATCH_URL: https://aka.doubaocdn.com/s/VRcEVTP19K
+PATCH_SHA256: 075feeba087de85fe02e00f96664b1543d0babd412ec0f5cd836acc65445b3b2
