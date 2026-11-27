@@ -1,0 +1,118 @@
+name: Build unsigned IPA (CarWithin + VOGE DS625X)
+
+# 用法：仓库页 → Actions → 左侧 "Build unsigned IPA" → 右侧 Run workflow。
+# 跑完在这条运行记录页面底部 Artifacts 下载 CarWithin-VOGE-unsigned-ipa.zip，
+# 解压得到 .ipa，用 Sideloadly 以你自己的 Apple ID 签名装进 iPhone。
+#
+# 补丁来源：默认从 patch_url 下载并校验 sha256。若链接失效，把新的补丁上传到任意直链，
+# 运行时把 patch_url / patch_sha256 改掉即可；也可以把 voge-port.patch 直接提交进本仓库根目录，
+# 工作流会优先用本地那份。
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: CarWithin 上游提交或分支（默认是已验证过补丁的那次提交）
+        required: false
+        default: cffbf58513558f5ad3976c7497a57d0f3eab1494
+      patch_url:
+        description: VOGE 补丁直链
+        required: false
+        default: https://aka.doubaocdn.com/s/GEyyTu7pMC
+      patch_sha256:
+        description: 补丁 sha256（校验用，留空则不校验）
+        required: false
+        default: 3980e71eeea43b4af85fc4836f0c8f9ef4e54169db86603618078adfede4fed3
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: 取出本仓库
+        uses: actions/checkout@v4
+
+      - name: 记录工具链版本
+        run: |
+          xcodebuild -version
+          sw_vers
+
+      - name: 准备补丁
+        run: |
+          set -euo pipefail
+          if [ -f voge-port.patch ]; then
+            echo "使用仓库内补丁"
+            cp voge-port.patch "$RUNNER_TEMP/voge-port.patch"
+          else
+            curl -fsSL "${{ inputs.patch_url }}" -o "$RUNNER_TEMP/voge-port.patch"
+          fi
+          EXPECTED="${{ inputs.patch_sha256 }}"
+          if [ -n "$EXPECTED" ]; then
+            ACTUAL=$(shasum -a 256 "$RUNNER_TEMP/voge-port.patch" | awk '{print $1}')
+            echo "补丁 sha256 = $ACTUAL"
+            [ "$ACTUAL" = "$EXPECTED" ] || { echo "补丁校验失败：内容与预期不一致"; exit 1; }
+          fi
+
+      - name: 拉取上游 CarWithin
+        run: |
+          set -euo pipefail
+          git clone https://github.com/xmz28/CarWithin.git upstream
+          cd upstream
+          git checkout "${{ inputs.upstream_ref }}"
+          git log -1 --oneline
+
+      - name: 应用 VOGE 补丁
+        run: |
+          set -euo pipefail
+          git -C upstream apply --verbose "$RUNNER_TEMP/voge-port.patch"
+          git -C upstream status --short
+
+      - name: 编译（关闭代码签名）
+        run: |
+          set -euo pipefail
+          cd upstream
+          xcodebuild \
+            -project TDSCarKit.xcodeproj \
+            -scheme TDSCarKit \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            DEVELOPMENT_TEAM="" \
+            build 2>&1 | tee "$RUNNER_TEMP/build.log" | tail -60
+
+      - name: 打包未签名 IPA
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/TDSCarKit.app"
+          if [ ! -d "$APP" ]; then
+            echo "找不到产物：$APP"
+            ls -R "$RUNNER_TEMP/dd/Build/Products" || true
+            exit 1
+          fi
+          rm -rf Payload CarWithin-VOGE-unsigned.ipa
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry CarWithin-VOGE-unsigned.ipa Payload
+          ls -lh CarWithin-VOGE-unsigned.ipa
+
+      - name: 上传 IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CarWithin-VOGE-unsigned-ipa
+          path: CarWithin-VOGE-unsigned.ipa
+          retention-days: 14
+
+      - name: 失败时上传完整编译日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ${{ runner.temp }}/build.log
+          if-no-files-found: ignore
+          retention-days: 7
