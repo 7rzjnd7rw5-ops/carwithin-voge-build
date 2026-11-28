@@ -1,5 +1,9 @@
 # carwithin-voge-build
 
+> **直接下载成品 IPA**：[CarWithin · 无极 DS625（2026 款）7 寸仪表投屏 v4（未签名）](https://github.com/7rzjnd7rw5-ops/carwithin-voge-build/releases/tag/v4-ds625-2026)
+>
+> 这个包**基于开源项目 [CarWithin](https://github.com/xmz28/CarWithin)（AGPL-3.0）修改**，专为**无极 VOGE DS625 2026 款的 7 寸彩屏仪表**适配；协议依据来自实车跑通的 Android 版 [`carbit-probe`](https://github.com/7rzjnd7rw5-ops/carbit-probe)。详细说明见 [`DS625-2026款-适配说明.md`](./DS625-2026款-适配说明.md)。
+
 把 VOGE 无极 DS625X 七寸仪表的投屏协议移植进 [CarWithin](https://github.com/xmz28/CarWithin)，并用 GitHub Actions 云端编出**未签名 IPA**，
 绕开本地 macOS 12 装不了新版 Xcode 的问题。
 
@@ -32,7 +36,16 @@
 1. iPhone 在系统设置里连仪表广播的 Wi-Fi（确认过仪表是普通 AP 不是 P2P）
 2. App → 设置 → 输出选 **无极 DS625X 7 寸（实验）**，IP 留空
 3. 仪表停在「手机互联」页面 → 回 App 启动 CarPlay
-4. 日志按这个顺序走通就是成功：`已监听 …` → `★ 仪表回连 TCP10922` → `采集配置` → `仪表要求开流` → `SN 校验通过并跳到投屏页` → `★ 仪表回连 TCP10920` → `第 1 帧 … 已送`
+4. 日志按这个顺序走通就是成功：
+   ```
+   敲 10930 …  → 收到 0x70000011
+   已监听 …:10922/10921/10920
+   接受回连 来源 192.168.13.1:xxxxx
+   采集配置 → 仪表要求开流 → SN 校验通过 → 跳到投屏页
+   接受回连 来源 192.168.13.1:xxxxx（10920）
+   第 1 帧 … 已送
+   ```
+   （v4 才开始有第一行“敲 10930”；v1–v3 只监听不敲门，所以仪表一条回连都没有）
 
 ## 四、以后自己魔改怎么再出包
 
@@ -52,3 +65,4 @@
 - 上游 CarWithin 是 **AGPL-3.0**，本仓库的补丁同协议，二次分发请保留协议与署名
 - 工作流默认 pin 在 `cffbf58`（2026-11-27，补丁已验证可干净应用）。想跟上游最新，把 `upstream_ref` 填成 `main`，但补丁可能会冲突
 - 编出来的 IPA 是**未签名**的，必须自己签，不能直接装
+- 只适配 **DS625 2026 款 7 寸**这一台，别刷 800X / 老款 625
