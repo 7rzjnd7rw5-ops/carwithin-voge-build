@@ -1,0 +1,42 @@
+name: Publish DS625 IPA release
+
+# 把已经编好的未签名 IPA 挂到 Release 上，供公开下载。
+# 触发：推送本文件时自动跑一次（也可手动 workflow_dispatch）。
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release-ipa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  IPA_URL: https://aka.doubaocdn.com/s/gCcCBXl33P
+  IPA_SHA256: c8269bf8079b447e70a98c5f3e2c2c667081f0609eb3bd307118d115ed20160f
+  IPA_NAME: CarWithin-VOGE-unsigned-v4.ipa
+  TAG: v4-ds625-2026
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 下载 IPA 并校验
+        run: |
+          curl -fL "$IPA_URL" -o "$IPA_NAME"
+          echo "$IPA_SHA256  $IPA_NAME" | sha256sum -c -
+          ls -lh "$IPA_NAME"
+
+      - name: 创建 Release 并上传附件
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: CarWithin · 无极 DS625（2026 款）7 寸仪表投屏 v4（未签名）
+          body_path: DS625-2026款-适配说明.md
+          files: ${{ env.IPA_NAME }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
