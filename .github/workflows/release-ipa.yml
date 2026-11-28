@@ -21,11 +21,13 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       - name: 下载 IPA 并校验
         run: |
+          set -e
           curl -fL "$IPA_URL" -o "$IPA_NAME"
           echo "$IPA_SHA256  $IPA_NAME" | sha256sum -c -
           ls -lh "$IPA_NAME"
